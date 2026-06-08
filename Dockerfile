@@ -10,6 +10,7 @@ RUN go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/seed ./cmd/seed
 
 # 运行阶段
 FROM alpine:3.21
@@ -19,6 +20,7 @@ RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 
 COPY --from=builder /app/server .
+COPY --from=builder /app/seed .
 COPY --from=builder /app/configs ./configs
 
 EXPOSE 8080

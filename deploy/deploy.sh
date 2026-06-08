@@ -47,7 +47,7 @@ echo ""
 read -p "是否填充种子数据？(y/N) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    docker compose -f docker-compose.prod.yml exec -T app ./server --seed 2>/dev/null || echo "⚠️ 种子数据填充需在容器内手动执行"
+    docker compose -f docker-compose.prod.yml exec -T app ./seed 2>/dev/null || echo "⚠️ 请手动执行: docker compose -f docker-compose.prod.yml exec app ./seed"
 fi
 
 echo ""
