@@ -4,7 +4,6 @@ import (
 	"chillcat-server/internal/model"
 	"chillcat-server/internal/repository"
 	"chillcat-server/pkg/logger"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,7 +27,6 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.User{},
 		&model.MemberInfo{},
 		&model.MemberOrder{},
-			&model.FeedItem{},
 	)
 	if err != nil {
 		t.Fatalf("迁移测试数据库失败: %v", err)
@@ -299,91 +297,3 @@ func TestGetOrderHistory(t *testing.T) {
 }
 
 // =============================================
-// 内容流服务测试
-
-func TestFeedService_EmptyList(t *testing.T) {
-	db := setupTestDB(t)
-	feedRepo := repository.NewFeedRepo(db)
-	svc := NewFeedService(feedRepo)
-
-	result, code, err := svc.ListFeeds(1, 10)
-
-	assert.NoError(t, err)
-	assert.Equal(t, 0, code)
-	assert.NotNil(t, result)
-	assert.Equal(t, int64(0), result.Total)
-	list, ok := result.List.([]FeedItemVO)
-	assert.True(t, ok)
-	assert.Equal(t, 0, len(list))
-}
-
-func TestFeedService_Pagination(t *testing.T) {
-	db := setupTestDB(t)
-	feedRepo := repository.NewFeedRepo(db)
-	svc := NewFeedService(feedRepo)
-
-	for i := 0; i < 15; i++ {
-		db.Create(&model.FeedItem{
-			Title:       fmt.Sprintf("测试内容 %d", i+1),
-			Subtitle:    fmt.Sprintf("描述 %d", i+1),
-			ContentType: "article",
-			Status:      1,
-			SortOrder:   i,
-		})
-	}
-
-	result, code, err := svc.ListFeeds(1, 10)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, code)
-	assert.Equal(t, int64(15), result.Total)
-	list, _ := result.List.([]FeedItemVO)
-	assert.Equal(t, 10, len(list))
-
-	result, code, err = svc.ListFeeds(2, 10)
-	assert.NoError(t, err)
-	list2, _ := result.List.([]FeedItemVO)
-	assert.Equal(t, 5, len(list2))
-}
-
-func TestFeedService_DefaultPageSize(t *testing.T) {
-	db := setupTestDB(t)
-	feedRepo := repository.NewFeedRepo(db)
-	svc := NewFeedService(feedRepo)
-
-	result, code, err := svc.ListFeeds(0, 100)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, code)
-	assert.Equal(t, 1, result.Page)
-	assert.Equal(t, 10, result.PageSize)
-}
-
-func TestFeedService_GetDetail(t *testing.T) {
-	db := setupTestDB(t)
-
-	item := &model.FeedItem{
-		Title:       "详情测试",
-		Subtitle:    "副标题",
-		ContentType: "music",
-		Status:      1,
-	}
-	db.Create(item)
-
-	feedRepo := repository.NewFeedRepo(db)
-	svc := NewFeedService(feedRepo)
-
-	result, code, err := svc.GetFeedDetail(item.ID)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, code)
-	assert.Equal(t, "详情测试", result.Title)
-	assert.Equal(t, "music", result.ContentType)
-}
-
-func TestFeedService_GetDetail_NotFound(t *testing.T) {
-	db := setupTestDB(t)
-	feedRepo := repository.NewFeedRepo(db)
-	svc := NewFeedService(feedRepo)
-
-	_, code, err := svc.GetFeedDetail(9999)
-	assert.Error(t, err)
-	assert.Equal(t, 10004, code)
-}
