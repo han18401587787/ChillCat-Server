@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - SERVER_MODE=release
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=chillcat
+      - DB_PASSWORD=${DB_PASSWORD:-chillcat_prod_2026}
+      - DB_NAME=chillcat
+      - JWT_SECRET=${JWT_SECRET:-chillcat-jwt-prod-secret}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+    networks:
+      - chillcat-network
+
+  postgres:
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=chillcat
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-chillcat_prod_2026}
+      - POSTGRES_DB=chillcat
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chillcat"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - chillcat-network
+
+volumes:
+  pgdata:
+
+networks:
+  chillcat-network:
+    driver: bridge
