@@ -93,3 +93,10 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		"expires_in": h.jwtExpire * 3600,
 	})
 }
+
+// AnonymousLogin 匿名登录
+func (h *AuthHandler) AnonymousLogin(c *gin.Context) {
+	resp, code, err := h.userService.AnonymousRegister()
+	if err != nil { response.Error(c, code); return }
+	response.Success(c, resp)
+}

@@ -63,6 +63,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/refresh", authHandler.RefreshToken)
+			auth.POST("/anonymous", authHandler.AnonymousLogin)
 		}
 
 		authorized := v1.Group("")

@@ -7,6 +7,8 @@ import (
 	"chillcat-server/pkg/logger"
 	"chillcat-server/pkg/response"
 	"errors"
+	"fmt"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -155,4 +157,20 @@ func (s *UserService) GetProfile(userID int64) (*model.User, int, error) {
 		return nil, response.ErrInternal, err
 	}
 	return user, response.CodeSuccess, nil
+}
+
+// AnonymousRegister creates a guest user and returns a token directly
+func (s *UserService) AnonymousRegister() (*LoginResponse, int, error) {
+	username := fmt.Sprintf("guest_%d", time.Now().UnixMilli())
+	nickname := "匿名用户"
+	guestPassword := fmt.Sprintf("xa_%d", time.Now().UnixNano())
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(guestPassword), bcrypt.DefaultCost)
+	user := &model.User{Username: username, Email: username + "@anonymous.xa", Password: string(hashedPassword), Nickname: nickname, Status: 1}
+	if err := s.userRepo.Create(user); err != nil {
+		logger.Errorf("匿名用户创建失败: %v", err)
+		return nil, response.ErrInternal, err
+	}
+	token, err := jwt.GenerateToken(user.ID, user.Username, s.jwtSecret, s.jwtExpire)
+	if err != nil { return nil, response.ErrInternal, err }
+	return &LoginResponse{UserID: user.ID, Username: user.Username, Nickname: user.Nickname, Token: token}, response.CodeSuccess, nil
 }
