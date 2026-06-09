@@ -54,10 +54,6 @@ func (s *UserService) Register(req *RegisterRequest) (*RegisterResponse, int, er
 		return nil, response.ErrUserExists, errors.New("用户名已存在")
 	}
 
-	// 检查邮箱是否已存在
-	if _, err := s.userRepo.GetByEmail(req.Email); err == nil {
-		return nil, response.ErrUserExists, errors.New("邮箱已存在")
-	}
 
 	// 密码加密
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
