@@ -30,7 +30,7 @@ func (r *EmotionRepo) List(userID int64, month string, page, pageSize int) ([]mo
 
 func (r *EmotionRepo) WeeklyStats(userID int64) ([]model.EmotionCheckin, error) {
     var items []model.EmotionCheckin
-    err := r.db.Where("user_id = ? AND checkin_date >= date('now', '-7 days')", userID).Order("checkin_date DESC").Find(&items).Error
+    err := r.db.Where("user_id = ? AND checkin_date >= CURRENT_DATE - INTERVAL '7 days'", userID).Order("checkin_date DESC").Find(&items).Error
     if err != nil { return nil, err }
     if items == nil { items = []model.EmotionCheckin{} }
     return items, nil

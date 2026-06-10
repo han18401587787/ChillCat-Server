@@ -30,6 +30,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 	emotionRepo := repository.NewEmotionRepo(db)
 	treeholeRepo := repository.NewTreeHoleRepo(db)
 	courseRepo := repository.NewCourseRepo(db)
+		commentRepo := repository.NewCommentRepo(db)
 
 	// Services
 	userService := service.NewUserService(userRepo, memberRepo, cfg.JWT.Secret, cfg.JWT.ExpireHour)
@@ -44,7 +45,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 	memberHandler := handler.NewMemberHandler(memberService)
 	emotionHandler := handler.NewEmotionHandler(emotionService)
 	treeholeHandler := handler.NewTreeHoleHandler(treeholeService)
-	courseHandler := handler.NewCourseHandler(courseService)
+	courseHandler := handler.NewCourseHandler(courseService, commentRepo)
 	healthHandler := handler.NewHealthHandler()
 
 	r := gin.New()
@@ -102,6 +103,8 @@ func Setup(cfg *config.Config) *gin.Engine {
 			// 课程
 			authorized.GET("/courses", courseHandler.List)
 			authorized.POST("/courses/:id/complete", courseHandler.MarkComplete)
+			authorized.GET("/courses/:id/comments", courseHandler.ListComments)
+			authorized.POST("/courses/:id/comments", courseHandler.AddComment)
 		}
 	}
 
@@ -124,7 +127,7 @@ func autoMigrate(db *gorm.DB) {
 	if err := db.AutoMigrate(
 		&model.User{}, &model.MemberInfo{}, &model.MemberOrder{},
 		&model.EmotionCheckin{}, &model.TreeHolePost{},
-		&model.Course{}, &model.UserCourseProgress{},
+		&model.Course{}, &model.UserCourseProgress{}, &model.CourseComment{},
 	); err != nil { logger.Fatalf("数据库迁移失败: %v", err) }
 	logger.Info("数据库迁移完成")
 }
