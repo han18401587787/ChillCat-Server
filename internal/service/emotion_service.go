@@ -61,7 +61,7 @@ func (s *EmotionService) ListJournal(userID int64, month string, page, pageSize 
     if pageSize < 1 || pageSize > 50 { pageSize = 10 }
     items, total, err := s.repo.List(userID, month, page, pageSize)
     if err != nil { return nil, response.ErrInternal, err }
-    var vos []JournalEntryVO
+    vos := make([]JournalEntryVO, 0, len(items))
     for _, c := range items {
         vos = append(vos, JournalEntryVO{ID: c.ID, Emotion: c.Emotion, Note: c.Note, HasDoodle: c.HasDoodle, Date: c.CheckinDate, Created: c.CreatedAt.Format("2006-01-02 15:04")})
     }
@@ -79,7 +79,7 @@ type WeeklyStatsVO struct {
 func (s *EmotionService) WeeklyStats(userID int64) (*WeeklyStatsVO, int, error) {
     items, err := s.repo.WeeklyStats(userID)
     if err != nil { return nil, response.ErrInternal, err }
-    var vos []JournalEntryVO
+    vos := make([]JournalEntryVO, 0, len(items))
     counts := map[string]int64{}
     for _, c := range items {
         vos = append(vos, JournalEntryVO{ID: c.ID, Emotion: c.Emotion, Note: c.Note, Date: c.CheckinDate, Created: c.CreatedAt.Format("2006-01-02 15:04")})
