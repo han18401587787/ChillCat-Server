@@ -85,6 +85,9 @@ jobs:
           script: |
             set -e
 
+            BRANCH="${{ github.ref_name }}"
+            COMMIT="${{ github.sha }}"
+
             echo "========================================="
             echo "🚀 开始部署 ChillCat Server"
             echo "========================================="
@@ -94,11 +97,11 @@ jobs:
             # ---------- Git 同步 ----------
             echo ""
             echo "📦 [1/5] Git 同步代码..."
-            echo "  分支: ${GITHUB_REF#refs/heads}"
-            echo "  提交: $GITHUB_SHA"
+            echo "  分支: $BRANCH"
+            echo "  提交: $COMMIT"
             git fetch origin
-            git checkout ${GITHUB_REF#refs/heads}
-            git pull origin ${GITHUB_REF#refs/heads}
+            git checkout $BRANCH
+            git reset --hard origin/$BRANCH
             echo "  当前 HEAD: $(git rev-parse --short HEAD)"
             echo "✅ Git 同步完成"
 
