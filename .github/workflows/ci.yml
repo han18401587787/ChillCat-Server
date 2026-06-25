@@ -96,4 +96,9 @@ jobs:
               fi
               echo "⏳ 等待服务就绪... ($i/12)"
             done
-            echo "❌ 健康检查失败" && exit 1
+            echo "❌ 健康检查失败"
+            echo "=== 容器状态 ==="
+            docker compose -f docker-compose.prod.yml ps
+            echo "=== 应用日志 ==="
+            docker compose -f docker-compose.prod.yml logs app --tail 50
+            exit 1
