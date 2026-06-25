@@ -108,6 +108,7 @@ jobs:
             # ---------- Docker 构建 ----------
             echo ""
             echo "🐳 [2/5] Docker 构建 & 启动..."
+            export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
             docker compose -f docker-compose.prod.yml up -d --build --remove-orphans 2>&1 | while read line; do echo "  $line"; done
             echo "✅ Docker 启动完成"
 
