@@ -30,7 +30,8 @@ func Setup(cfg *config.Config) *gin.Engine {
 	emotionRepo := repository.NewEmotionRepo(db)
 	treeholeRepo := repository.NewTreeHoleRepo(db)
 	courseRepo := repository.NewCourseRepo(db)
-		commentRepo := repository.NewCommentRepo(db)
+	commentRepo := repository.NewCommentRepo(db)
+	resonanceRepo := repository.NewResonanceRepo(db)
 
 	// Services
 	userService := service.NewUserService(userRepo, memberRepo, cfg.JWT.Secret, cfg.JWT.ExpireHour)
@@ -38,6 +39,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 	emotionService := service.NewEmotionService(emotionRepo)
 	treeholeService := service.NewTreeHoleService(treeholeRepo)
 	courseService := service.NewCourseService(courseRepo)
+	resonanceService := service.NewResonanceService(resonanceRepo)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(userService, cfg.JWT.Secret, cfg.JWT.ExpireHour)
@@ -46,6 +48,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 	emotionHandler := handler.NewEmotionHandler(emotionService)
 	treeholeHandler := handler.NewTreeHoleHandler(treeholeService)
 	courseHandler := handler.NewCourseHandler(courseService, commentRepo)
+	resonanceHandler := handler.NewResonanceHandler(resonanceService)
 	healthHandler := handler.NewHealthHandler()
 
 	r := gin.New()
@@ -100,6 +103,16 @@ func Setup(cfg *config.Config) *gin.Engine {
 				th.POST("/posts/:id/hug", treeholeHandler.AddHug)
 			}
 
+			// 共鸣墙
+			resonance := authorized.Group("/resonance")
+			{
+				resonance.POST("/stories", resonanceHandler.CreateStory)
+				resonance.GET("/stories", resonanceHandler.ListStories)
+				resonance.GET("/stories/:id", resonanceHandler.GetStory)
+				resonance.POST("/stories/:id/resonate", resonanceHandler.Resonate)
+				resonance.GET("/stories/:id/resonators", resonanceHandler.GetResonators)
+			}
+
 			// 课程
 			authorized.GET("/courses", courseHandler.List)
 			authorized.POST("/courses/:id/complete", courseHandler.MarkComplete)
@@ -128,6 +141,7 @@ func autoMigrate(db *gorm.DB) {
 		&model.User{}, &model.MemberInfo{}, &model.MemberOrder{},
 		&model.EmotionCheckin{}, &model.TreeHolePost{},
 		&model.Course{}, &model.UserCourseProgress{}, &model.CourseComment{},
+		&model.ResonanceStory{}, &model.ResonanceRecord{},
 	); err != nil { logger.Fatalf("数据库迁移失败: %v", err) }
 	logger.Info("数据库迁移完成")
 }
