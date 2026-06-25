@@ -83,22 +83,78 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
+            set -e
+
+            echo "========================================="
+            echo "🚀 开始部署 ChillCat Server"
+            echo "========================================="
+
             cd ~/ChillCat-Server
+
+            # ---------- Git 同步 ----------
+            echo ""
+            echo "📦 [1/5] Git 同步代码..."
+            echo "  分支: ${GITHUB_REF#refs/heads}"
+            echo "  提交: $GITHUB_SHA"
             git fetch origin
-            git checkout ${GITHUB_REF#refs/heads/}
-            git pull origin ${GITHUB_REF#refs/heads/}
-            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+            git checkout ${GITHUB_REF#refs/heads}
+            git pull origin ${GITHUB_REF#refs/heads}
+            echo "  当前 HEAD: $(git rev-parse --short HEAD)"
+            echo "✅ Git 同步完成"
+
+            # ---------- Docker 构建 ----------
+            echo ""
+            echo "🐳 [2/5] Docker 构建 & 启动..."
+            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans 2>&1 | while read line; do echo "  $line"; done
+            echo "✅ Docker 启动完成"
+
+            # ---------- 容器状态 ----------
+            echo ""
+            echo "📋 [3/5] 容器状态..."
+            docker compose -f docker-compose.prod.yml ps
+
+            # ---------- 数据库检查 ----------
+            echo ""
+            echo "🗄️  [4/5] 数据库连接检查..."
+            if docker compose -f docker-compose.prod.yml exec -T postgres pg_isready -U chillcat 2>/dev/null; then
+              echo "✅ PostgreSQL 就绪"
+            else
+              echo "⚠️  PostgreSQL 状态异常"
+            fi
+
+            # ---------- 健康检查 ----------
+            echo ""
+            echo "💚 [5/5] 服务健康检查..."
             for i in $(seq 1 12); do
               sleep 5
-              if curl -sf http://localhost:8080/health; then
-                echo "✅ 部署成功 (尝试 $i)"
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health 2>/dev/null || echo "000")
+              echo "  尝试 $i/12 → HTTP $STATUS"
+              if [ "$STATUS" = "200" ]; then
+                echo ""
+                echo "========================================="
+                echo "✅ 部署成功！"
+                echo "========================================="
                 exit 0
               fi
-              echo "⏳ 等待服务就绪... ($i/12)"
             done
-            echo "❌ 健康检查失败"
+
+            # ---------- 失败诊断 ----------
+            echo ""
+            echo "========================================="
+            echo "❌ 健康检查失败 - 开始诊断"
+            echo "========================================="
+            echo ""
             echo "=== 容器状态 ==="
-            docker compose -f docker-compose.prod.yml ps
-            echo "=== 应用日志 ==="
-            docker compose -f docker-compose.prod.yml logs app --tail 50
+            docker compose -f docker-compose.prod.yml ps -a
+            echo ""
+            echo "=== 应用日志 (最近 80 行) ==="
+            docker compose -f docker-compose.prod.yml logs app --tail 80 2>&1 || echo "(无应用日志)"
+            echo ""
+            echo "=== 数据库日志 (最近 20 行) ==="
+            docker compose -f docker-compose.prod.yml logs postgres --tail 20 2>&1 || echo "(无数据库日志)"
+            echo ""
+            echo "=== 应用容器详情 ==="
+            docker inspect chillcat-server-app-1 --format '状态: {{.State.Status}} | 退出码: {{.State.ExitCode}} | 启动时间: {{.State.StartedAt}} | 错误: {{.State.Error}}' 2>/dev/null || echo "(无法获取)"
+            echo ""
+            echo "========================================="
             exit 1
