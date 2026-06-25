@@ -33,21 +33,7 @@ type AIClient interface {
 	AnalyzeEmotion(content string) (*EmotionAnalysis, error)
 }
 
-// ─── 情绪类型定义 ─────────────────────────────────────────────
-
-type emotionType int
-
-const (
-	emotionAnxiety     emotionType = iota // 焦虑
-	emotionAnger                          // 愤怒
-	emotionSadness                        // 悲伤
-	emotionLoneliness                     // 孤独
-	emotionFatigue                        // 疲惫
-	emotionHappiness                      // 开心
-	emotionNeutral                        // 中性（默认）
-)
-
-// emotionRule 情绪规则：关键词 + 共情回应模板
+// ─── 情绪规则定义 ─────────────────────────────────────────────
 type emotionRule struct {
 	Name        string   // 情绪中文名
 	EmotionKey  string   // 返回给前端的情绪标识
