@@ -18,9 +18,11 @@ func main() {
 	logger.Info("🌱 绪安 100+种子数据填充...")
 
 	db, _ := gorm.Open(postgres.Open(cfg.Database.DSN()), &gorm.Config{})
-	db.AutoMigrate(&model.User{}, &model.MemberInfo{}, &model.MemberOrder{},
+	if err := db.AutoMigrate(&model.User{}, &model.MemberInfo{}, &model.MemberOrder{},
 		&model.EmotionCheckin{}, &model.TreeHolePost{},
-		&model.Course{}, &model.UserCourseProgress{}, &model.Message{})
+		&model.Course{}, &model.UserCourseProgress{}, &model.Message{}); err != nil {
+		logger.Fatalf("自动迁移失败: %v", err)
+	}
 
 	hash, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
 	users := []struct{ u, n, e string }{

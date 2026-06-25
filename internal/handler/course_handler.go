@@ -55,6 +55,9 @@ func (h *CourseHandler) AddComment(c *gin.Context) {
 		Content string `json:"content" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil { response.Error(c, response.ErrBadRequest); return }
-	h.commentRepo.Create(&model.CourseComment{CourseID: courseID, UserID: userID, Content: req.Content})
+	if err := h.commentRepo.Create(&model.CourseComment{CourseID: courseID, UserID: userID, Content: req.Content}); err != nil {
+		response.Error(c, response.ErrInternal)
+		return
+	}
 	response.Success(c, nil)
 }
