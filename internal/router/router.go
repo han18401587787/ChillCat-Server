@@ -43,6 +43,9 @@ func Setup(cfg *config.Config) *gin.Engine {
 	resonanceService := service.NewResonanceService(resonanceRepo)
 	encourageService := service.NewEncourageService(encourageRepo)
 
+	// AI 服务（无数据库依赖，使用本地规则引擎）
+	aiService := service.NewAIService()
+
 	// Handlers
 	authHandler := handler.NewAuthHandler(userService, cfg.JWT.Secret, cfg.JWT.ExpireHour)
 	userHandler := handler.NewUserHandler(userService)
@@ -53,6 +56,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 	resonanceHandler := handler.NewResonanceHandler(resonanceService)
 	encourageHandler := handler.NewEncourageHandler(encourageService)
 	healthHandler := handler.NewHealthHandler()
+	aiHandler := handler.NewAIHandler(aiService)
 
 	r := gin.New()
 	r.Use(middleware.Logger())
@@ -131,6 +135,13 @@ func Setup(cfg *config.Config) *gin.Engine {
 			authorized.POST("/courses/:id/complete", courseHandler.MarkComplete)
 			authorized.GET("/courses/:id/comments", courseHandler.ListComments)
 			authorized.POST("/courses/:id/comments", courseHandler.AddComment)
+
+			// AI 情绪分析
+			ai := authorized.Group("/ai")
+			{
+				ai.POST("/empathy", aiHandler.Empathy)
+				ai.POST("/analyze", aiHandler.Analyze)
+			}
 		}
 	}
 
