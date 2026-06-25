@@ -1,14 +1,17 @@
 package router
 
 import (
+	"chillcat-server/internal/cache"
 	"chillcat-server/internal/config"
 	"chillcat-server/internal/handler"
 	"chillcat-server/internal/middleware"
 	"chillcat-server/internal/model"
 	"chillcat-server/internal/repository"
 	"chillcat-server/internal/service"
+	"chillcat-server/internal/ws"
 	"chillcat-server/pkg/logger"
 	"chillcat-server/pkg/validator"
+	"context"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -23,6 +26,9 @@ func Setup(cfg *config.Config) *gin.Engine {
 
 	db := initDB(cfg)
 	autoMigrate(db)
+
+	// Redis 缓存层（连接失败降级为无缓存模式）
+	rdb := cache.NewRedisClient(cfg)
 
 	// Repositories
 	userRepo := repository.NewUserRepo(db)
@@ -42,8 +48,8 @@ func Setup(cfg *config.Config) *gin.Engine {
 	emotionService := service.NewEmotionService(emotionRepo)
 	treeholeService := service.NewTreeHoleService(treeholeRepo)
 	courseService := service.NewCourseService(courseRepo)
-	resonanceService := service.NewResonanceService(resonanceRepo)
-	encourageService := service.NewEncourageService(encourageRepo)
+	resonanceService := service.NewResonanceService(resonanceRepo, rdb)
+	encourageService := service.NewEncourageService(encourageRepo, rdb)
 
 	// AI 服务（无数据库依赖，使用本地规则引擎）
 	aiService := service.NewAIService()
@@ -72,6 +78,11 @@ func Setup(cfg *config.Config) *gin.Engine {
 	healingHandler := handler.NewHealingHandler(healingService)
 	voiceHandler := handler.NewVoiceHandler(db)
 	letterHandler := handler.NewLetterHandler(letterService)
+
+	// WebSocket Hub（实时推送管理中心）
+	wsHub := ws.NewHub(rdb)
+	go wsHub.Run(context.Background())
+	wsHandler := handler.NewWSHandler(wsHub, cfg.JWT.Secret)
 
 	r := gin.New()
 	r.Use(middleware.Logger())
@@ -185,6 +196,12 @@ func Setup(cfg *config.Config) *gin.Engine {
 				letters.GET("/received", letterHandler.Received)
 				letters.GET("/:id", letterHandler.Get)
 			}
+		}
+
+		// WebSocket 实时推送（在 upgrade 中自行验证 JWT）
+		ws := v1.Group("/ws")
+		{
+			ws.GET("", wsHandler.Upgrade)
 		}
 	}
 

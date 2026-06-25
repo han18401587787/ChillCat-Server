@@ -1,19 +1,26 @@
 package service
 
 import (
+	"chillcat-server/internal/cache"
 	"chillcat-server/internal/model"
 	"chillcat-server/internal/repository"
+	"chillcat-server/pkg/logger"
 	"chillcat-server/pkg/response"
+	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
 	"gorm.io/gorm"
 )
 
-type ResonanceService struct{ repo *repository.ResonanceRepo }
+type ResonanceService struct {
+	repo *repository.ResonanceRepo
+	rdb  *cache.RedisClient // Redis 客户端（可能为 nil）
+}
 
-func NewResonanceService(repo *repository.ResonanceRepo) *ResonanceService {
-	return &ResonanceService{repo: repo}
+func NewResonanceService(repo *repository.ResonanceRepo, rdb *cache.RedisClient) *ResonanceService {
+	return &ResonanceService{repo: repo, rdb: rdb}
 }
 
 // CreateStoryRequest 发布共鸣故事请求
@@ -124,6 +131,10 @@ func (s *ResonanceService) Resonate(storyID, userID int64, req *ResonateRequest)
 	if err := s.repo.CreateRecord(record); err != nil {
 		return response.ErrInternal, err
 	}
+
+	// 发布共鸣事件到 Redis（用于 WebSocket 实时推送）
+	s.publishResonanceEvent(storyID, userID, msg)
+
 	return response.CodeSuccess, nil
 }
 
@@ -158,5 +169,29 @@ func (s *ResonanceService) toStoryVO(story *model.ResonanceStory) *StoryVO {
 		ResonanceCount: story.ResonanceCount,
 		DisplayName:    name,
 		CreatedAt:      story.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+// publishResonanceEvent 通过 Redis Pub/Sub 发布共鸣事件
+func (s *ResonanceService) publishResonanceEvent(storyID, userID int64, message string) {
+	if s.rdb == nil || !s.rdb.IsOK() {
+		return
+	}
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"type": "resonance.new",
+		"data": map[string]interface{}{
+			"story_id": storyID,
+			"user_id":  userID,
+			"message":  message,
+			"time":     time.Now().Format(time.RFC3339),
+		},
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := s.rdb.Publish(ctx, "chillcat:events", string(payload)); err != nil {
+		logger.Warnf("Redis 发布共鸣事件失败: %v", err)
 	}
 }

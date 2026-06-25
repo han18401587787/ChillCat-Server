@@ -97,6 +97,7 @@ func Load() (*Config, error) {
 	cfg.Redis.Host = getEnv("REDIS_HOST", cfg.Redis.Host)
 	cfg.Redis.Port = getEnvInt("REDIS_PORT", cfg.Redis.Port)
 	cfg.Redis.Password = getEnv("REDIS_PASSWORD", cfg.Redis.Password)
+	cfg.Redis.DB = getEnvInt("REDIS_DB", cfg.Redis.DB)
 	cfg.JWT.Secret = getEnv("JWT_SECRET", cfg.JWT.Secret)
 
 	return cfg, nil

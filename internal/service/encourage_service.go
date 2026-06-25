@@ -1,9 +1,13 @@
 package service
 
 import (
+	"chillcat-server/internal/cache"
 	"chillcat-server/internal/model"
 	"chillcat-server/internal/repository"
+	"chillcat-server/pkg/logger"
 	"chillcat-server/pkg/response"
+	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -12,10 +16,11 @@ import (
 
 type EncourageService struct {
 	repo *repository.EncourageRepo
+	rdb  *cache.RedisClient // Redis 客户端（可能为 nil）
 }
 
-func NewEncourageService(repo *repository.EncourageRepo) *EncourageService {
-	return &EncourageService{repo: repo}
+func NewEncourageService(repo *repository.EncourageRepo, rdb *cache.RedisClient) *EncourageService {
+	return &EncourageService{repo: repo, rdb: rdb}
 }
 
 // ---------- 请求 / 展示结构 ----------
@@ -188,6 +193,9 @@ func (s *EncourageService) JoinChain(chainID, userID int64, req *JoinChainReques
 		_ = s.repo.CompleteChain(chainID)
 	}
 
+	// 发布鼓励接力事件到 Redis（用于 WebSocket 实时推送）
+	s.publishJoinEvent(chainID, userID, content)
+
 	return s.toLinkVO(link), response.CodeSuccess, nil
 }
 
@@ -245,5 +253,29 @@ func (s *EncourageService) toLinkVO(l *model.EncourageLink) *LinkVO {
 		Position:    l.Position,
 		IsAnonymous: l.IsAnonymous,
 		CreatedAt:   l.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+// publishJoinEvent 通过 Redis Pub/Sub 发布鼓励接力事件
+func (s *EncourageService) publishJoinEvent(chainID, userID int64, content string) {
+	if s.rdb == nil || !s.rdb.IsOK() {
+		return
+	}
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"type": "encourage.joined",
+		"data": map[string]interface{}{
+			"chain_id": chainID,
+			"user_id":  userID,
+			"content":  content,
+			"time":     time.Now().Format(time.RFC3339),
+		},
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := s.rdb.Publish(ctx, "chillcat:events", string(payload)); err != nil {
+		logger.Warnf("Redis 发布鼓励接力事件失败: %v", err)
 	}
 }
