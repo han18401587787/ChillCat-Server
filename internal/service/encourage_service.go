@@ -110,7 +110,7 @@ func (s *EncourageService) GetChain(chainID int64) (*ChainDetailVO, int, error) 
 
 	linkVOs := make([]LinkVO, 0, len(links))
 	for _, l := range links {
-		linkVOs = append(linkVOs, s.toLinkVO(&l))
+		linkVOs = append(linkVOs, *s.toLinkVO(&l))
 	}
 
 	return &ChainDetailVO{
