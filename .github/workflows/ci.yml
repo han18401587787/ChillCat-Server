@@ -1,0 +1,92 @@
+name: ChillCat Server CI
+
+on:
+  push:
+    branches: [main, develop, v3.0-dev]
+  pull_request:
+    branches: [main, v3.0-dev]
+  schedule:
+    - cron: '0 2 * * *'  # 每天 UTC 2:00
+
+jobs:
+  # =============================================
+  # Go 测试 + Lint
+  # =============================================
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: chillcat
+          POSTGRES_PASSWORD: chillcat
+          POSTGRES_DB: chillcat_test
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.11'
+      - name: Build
+        run: go build ./...
+      - name: Test
+        run: go test ./... -count=1 -race -json > test-results.json
+        env:
+          DB_HOST: localhost
+          DB_USER: chillcat
+          DB_PASSWORD: chillcat
+          DB_NAME: chillcat_test
+          REDIS_HOST: localhost
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: server-test-results
+          path: test-results.json
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  # =============================================
+  # Docker 构建
+  # =============================================
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t chillcat-server .
+
+  # =============================================
+  # 自动部署到云服务器
+  # =============================================
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    needs: [test, docker]
+    if: github.ref == 'refs/heads/v3.0-dev' || github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd ~/ChillCat-Server
+            git fetch origin
+            git checkout ${GITHUB_REF#refs/heads/}
+            git pull origin ${GITHUB_REF#refs/heads/}
+            docker compose -f docker-compose.prod.yml up -d --build
+            sleep 5
+            curl -sf http://localhost:8080/health && echo "✅ 部署成功" || echo "❌ 健康检查失败"
