@@ -36,6 +36,10 @@ const (
 	ErrPurchaseFailed  = 30003
 	ErrProductNotFound = 30004
 	ErrInvalidProduct  = 30005
+
+	// 内容审核 (40000-49999)
+	ErrContentBlocked = 40001
+	ErrSelfHarm       = 40002
 )
 
 var codeMsg = map[int]string{
@@ -58,6 +62,9 @@ var codeMsg = map[int]string{
 	ErrPurchaseFailed:  "购买失败，请稍后再试",
 	ErrProductNotFound: "商品不存在",
 	ErrInvalidProduct:  "无效的商品",
+
+	ErrContentBlocked: "内容包含不当词汇，请修改后重试",
+	ErrSelfHarm:       "我们注意到你可能正在经历困难。全国心理援助热线：400-161-9995",
 }
 
 // GetMsg 获取错误码对应的消息

@@ -126,7 +126,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 			// 树洞
 			th := authorized.Group("/treehole")
 			{
-				th.POST("/posts", treeholeHandler.CreatePost)
+				th.POST("/posts", middleware.ContentModeration(), treeholeHandler.CreatePost)
 				th.GET("/posts", treeholeHandler.ListPosts)
 				th.POST("/posts/:id/hug", treeholeHandler.AddHug)
 			}
@@ -134,7 +134,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 			// 共鸣墙
 			resonance := authorized.Group("/resonance")
 			{
-				resonance.POST("/stories", resonanceHandler.CreateStory)
+				resonance.POST("/stories", middleware.ContentModeration(), resonanceHandler.CreateStory)
 				resonance.GET("/stories", resonanceHandler.ListStories)
 				resonance.GET("/stories/:id", resonanceHandler.GetStory)
 				resonance.POST("/stories/:id/resonate", resonanceHandler.Resonate)
@@ -144,10 +144,10 @@ func Setup(cfg *config.Config) *gin.Engine {
 			// 鼓励链
 			encourage := authorized.Group("/encourage")
 			{
-				encourage.POST("/chains", encourageHandler.CreateChain)
+				encourage.POST("/chains", middleware.ContentModeration(), encourageHandler.CreateChain)
 				encourage.GET("/chains", encourageHandler.ListChains)
 				encourage.GET("/chains/:id", encourageHandler.GetChain)
-				encourage.POST("/chains/:id/join", encourageHandler.JoinChain)
+				encourage.POST("/chains/:id/join", middleware.ContentModeration(), encourageHandler.JoinChain)
 				encourage.GET("/my-chains", encourageHandler.ListMyChains)
 			}
 
