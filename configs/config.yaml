@@ -6,7 +6,7 @@ database:
   host: localhost
   port: 5432
   user: chillcat
-  password: chillcat_pass
+  password: chillcat_prod_2026
   dbname: chillcat
   sslmode: disable
   max_open: 25
