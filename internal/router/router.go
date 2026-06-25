@@ -32,6 +32,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 	courseRepo := repository.NewCourseRepo(db)
 	commentRepo := repository.NewCommentRepo(db)
 	resonanceRepo := repository.NewResonanceRepo(db)
+	encourageRepo := repository.NewEncourageRepo(db)
 
 	// Services
 	userService := service.NewUserService(userRepo, memberRepo, cfg.JWT.Secret, cfg.JWT.ExpireHour)
@@ -40,6 +41,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 	treeholeService := service.NewTreeHoleService(treeholeRepo)
 	courseService := service.NewCourseService(courseRepo)
 	resonanceService := service.NewResonanceService(resonanceRepo)
+	encourageService := service.NewEncourageService(encourageRepo)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(userService, cfg.JWT.Secret, cfg.JWT.ExpireHour)
@@ -49,6 +51,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 	treeholeHandler := handler.NewTreeHoleHandler(treeholeService)
 	courseHandler := handler.NewCourseHandler(courseService, commentRepo)
 	resonanceHandler := handler.NewResonanceHandler(resonanceService)
+	encourageHandler := handler.NewEncourageHandler(encourageService)
 	healthHandler := handler.NewHealthHandler()
 
 	r := gin.New()
@@ -113,6 +116,16 @@ func Setup(cfg *config.Config) *gin.Engine {
 				resonance.GET("/stories/:id/resonators", resonanceHandler.GetResonators)
 			}
 
+			// 鼓励链
+			encourage := authorized.Group("/encourage")
+			{
+				encourage.POST("/chains", encourageHandler.CreateChain)
+				encourage.GET("/chains", encourageHandler.ListChains)
+				encourage.GET("/chains/:id", encourageHandler.GetChain)
+				encourage.POST("/chains/:id/join", encourageHandler.JoinChain)
+				encourage.GET("/my-chains", encourageHandler.ListMyChains)
+			}
+
 			// 课程
 			authorized.GET("/courses", courseHandler.List)
 			authorized.POST("/courses/:id/complete", courseHandler.MarkComplete)
@@ -126,9 +139,13 @@ func Setup(cfg *config.Config) *gin.Engine {
 
 func initDB(cfg *config.Config) *gorm.DB {
 	logLevel := gormlogger.Warn
-	if cfg.Server.Mode == "debug" { logLevel = gormlogger.Info }
+	if cfg.Server.Mode == "debug" {
+		logLevel = gormlogger.Info
+	}
 	db, err := gorm.Open(postgres.Open(cfg.Database.DSN()), &gorm.Config{Logger: gormlogger.Default.LogMode(logLevel)})
-	if err != nil { logger.Fatalf("数据库连接失败: %v", err) }
+	if err != nil {
+		logger.Fatalf("数据库连接失败: %v", err)
+	}
 	sqlDB, _ := db.DB()
 	sqlDB.SetMaxOpenConns(cfg.Database.MaxOpen)
 	sqlDB.SetMaxIdleConns(cfg.Database.MaxIdle)
@@ -142,6 +159,9 @@ func autoMigrate(db *gorm.DB) {
 		&model.EmotionCheckin{}, &model.TreeHolePost{},
 		&model.Course{}, &model.UserCourseProgress{}, &model.CourseComment{},
 		&model.ResonanceStory{}, &model.ResonanceRecord{},
-	); err != nil { logger.Fatalf("数据库迁移失败: %v", err) }
+		&model.EncourageChain{}, &model.EncourageLink{},
+	); err != nil {
+		logger.Fatalf("数据库迁移失败: %v", err)
+	}
 	logger.Info("数据库迁移完成")
 }
