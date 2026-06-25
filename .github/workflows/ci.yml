@@ -88,5 +88,12 @@ jobs:
             git checkout ${GITHUB_REF#refs/heads/}
             git pull origin ${GITHUB_REF#refs/heads/}
             docker compose -f docker-compose.prod.yml up -d --build
-            sleep 5
-            curl -sf http://localhost:8080/health && echo "✅ 部署成功" || echo "❌ 健康检查失败"
+            for i in $(seq 1 12); do
+              sleep 5
+              if curl -sf http://localhost:8080/health; then
+                echo "✅ 部署成功 (尝试 $i)"
+                exit 0
+              fi
+              echo "⏳ 等待服务就绪... ($i/12)"
+            done
+            echo "❌ 健康检查失败" && exit 1
