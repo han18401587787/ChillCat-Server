@@ -87,7 +87,7 @@ jobs:
             git fetch origin
             git checkout ${GITHUB_REF#refs/heads/}
             git pull origin ${GITHUB_REF#refs/heads/}
-            docker compose -f docker-compose.prod.yml up -d --build
+            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
             for i in $(seq 1 12); do
               sleep 5
               if curl -sf http://localhost:8080/health; then
