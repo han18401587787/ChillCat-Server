@@ -43,3 +43,12 @@ func (h *EmotionHandler) WeeklyStats(c *gin.Context) {
     if err != nil { response.Error(c, code); return }
     response.Success(c, result)
 }
+
+// Alerts 情绪预警接口
+// GET /api/v1/emotion/alerts — 检查当前用户是否需要预警
+func (h *EmotionHandler) Alerts(c *gin.Context) {
+    userID, ok := getUserID(c); if !ok { return }
+    result, code, err := h.svc.Alerts(userID)
+    if err != nil { response.Error(c, code); return }
+    response.Success(c, result)
+}

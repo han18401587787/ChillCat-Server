@@ -33,6 +33,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 	commentRepo := repository.NewCommentRepo(db)
 	resonanceRepo := repository.NewResonanceRepo(db)
 	encourageRepo := repository.NewEncourageRepo(db)
+	healingRepo := repository.NewHealingRepo(db)
 
 	// Services
 	userService := service.NewUserService(userRepo, memberRepo, cfg.JWT.Secret, cfg.JWT.ExpireHour)
@@ -46,6 +47,12 @@ func Setup(cfg *config.Config) *gin.Engine {
 	// AI 服务（无数据库依赖，使用本地规则引擎）
 	aiService := service.NewAIService()
 
+	// 情绪解码服务（依赖 AI 服务）
+	emotionDecodeService := service.NewEmotionDecodeService(aiService)
+
+	// 稳情计划服务（依赖数据库 + AI 服务）
+	healingService := service.NewHealingService(healingRepo, aiService)
+
 	// Handlers
 	authHandler := handler.NewAuthHandler(userService, cfg.JWT.Secret, cfg.JWT.ExpireHour)
 	userHandler := handler.NewUserHandler(userService)
@@ -57,6 +64,8 @@ func Setup(cfg *config.Config) *gin.Engine {
 	encourageHandler := handler.NewEncourageHandler(encourageService)
 	healthHandler := handler.NewHealthHandler()
 	aiHandler := handler.NewAIHandler(aiService)
+	emotionDecodeHandler := handler.NewEmotionDecodeHandler(emotionDecodeService)
+	healingHandler := handler.NewHealingHandler(healingService)
 
 	r := gin.New()
 	r.Use(middleware.Logger())
@@ -100,6 +109,18 @@ func Setup(cfg *config.Config) *gin.Engine {
 				emotion.GET("/today", emotionHandler.GetToday)
 				emotion.GET("/journal", emotionHandler.Journal)
 				emotion.GET("/weekly-stats", emotionHandler.WeeklyStats)
+				emotion.GET("/alerts", emotionHandler.Alerts)
+			}
+
+			// 情绪解码器（无需数据库，复用 AI 服务）
+			authorized.POST("/emotion/decode", emotionDecodeHandler.Decode)
+
+			// 稳情计划
+			healing := authorized.Group("/healing")
+			{
+				healing.GET("/plan", healingHandler.GetPlan)
+				healing.POST("/plan/generate", healingHandler.GeneratePlan)
+				healing.POST("/plan/tasks/:id/complete", healingHandler.CompleteTask)
 			}
 
 			// 树洞
@@ -171,6 +192,7 @@ func autoMigrate(db *gorm.DB) {
 		&model.Course{}, &model.UserCourseProgress{}, &model.CourseComment{},
 		&model.ResonanceStory{}, &model.ResonanceRecord{},
 		&model.EncourageChain{}, &model.EncourageLink{},
+		&model.HealingPlan{}, &model.HealingPlanTask{},
 	); err != nil {
 		logger.Fatalf("数据库迁移失败: %v", err)
 	}
