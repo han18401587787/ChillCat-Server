@@ -34,6 +34,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 	resonanceRepo := repository.NewResonanceRepo(db)
 	encourageRepo := repository.NewEncourageRepo(db)
 	healingRepo := repository.NewHealingRepo(db)
+	letterRepo := repository.NewLetterRepo(db)
 
 	// Services
 	userService := service.NewUserService(userRepo, memberRepo, cfg.JWT.Secret, cfg.JWT.ExpireHour)
@@ -53,6 +54,9 @@ func Setup(cfg *config.Config) *gin.Engine {
 	// 稳情计划服务（依赖数据库 + AI 服务）
 	healingService := service.NewHealingService(healingRepo, aiService)
 
+	// 感谢信服务
+	letterService := service.NewLetterService(letterRepo)
+
 	// Handlers
 	authHandler := handler.NewAuthHandler(userService, cfg.JWT.Secret, cfg.JWT.ExpireHour)
 	userHandler := handler.NewUserHandler(userService)
@@ -66,6 +70,8 @@ func Setup(cfg *config.Config) *gin.Engine {
 	aiHandler := handler.NewAIHandler(aiService)
 	emotionDecodeHandler := handler.NewEmotionDecodeHandler(emotionDecodeService)
 	healingHandler := handler.NewHealingHandler(healingService)
+	voiceHandler := handler.NewVoiceHandler(db)
+	letterHandler := handler.NewLetterHandler(letterService)
 
 	r := gin.New()
 	r.Use(middleware.Logger())
@@ -163,6 +169,22 @@ func Setup(cfg *config.Config) *gin.Engine {
 				ai.POST("/empathy", aiHandler.Empathy)
 				ai.POST("/analyze", aiHandler.Analyze)
 			}
+
+			// 语音情绪日记
+			voice := authorized.Group("/voice")
+			{
+				voice.POST("/upload", voiceHandler.Upload)
+				voice.GET("/:id/status", voiceHandler.Status)
+			}
+
+			// 感谢信
+			letters := authorized.Group("/letters")
+			{
+				letters.POST("", middleware.ContentModeration(), letterHandler.Create)
+				letters.GET("/sent", letterHandler.Sent)
+				letters.GET("/received", letterHandler.Received)
+				letters.GET("/:id", letterHandler.Get)
+			}
 		}
 	}
 
@@ -193,6 +215,7 @@ func autoMigrate(db *gorm.DB) {
 		&model.ResonanceStory{}, &model.ResonanceRecord{},
 		&model.EncourageChain{}, &model.EncourageLink{},
 		&model.HealingPlan{}, &model.HealingPlanTask{},
+		&model.ThankYouLetter{},
 	); err != nil {
 		logger.Fatalf("数据库迁移失败: %v", err)
 	}
