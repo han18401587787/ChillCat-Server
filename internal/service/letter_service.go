@@ -57,7 +57,7 @@ func (s *LetterService) Create(senderID int64, req *CreateLetterRequest) (*Lette
 	}
 
 	// is_public 默认 true
-	isPublic := true
+	isPublic := true           //nolint:staticcheck
 	if !req.IsPublic {
 		isPublic = false
 	}

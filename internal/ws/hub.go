@@ -98,7 +98,7 @@ func (h *Hub) Run(ctx context.Context) {
 			h.clientsMu.Lock()
 			for userID, client := range h.clients {
 				close(client.send)
-				client.conn.Close()
+				_ = client.conn.Close()
 				delete(h.clients, userID)
 			}
 			h.clientsMu.Unlock()
