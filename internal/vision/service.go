@@ -129,7 +129,7 @@ func (s *VisionService) analyzeWithAI(ctx context.Context, imageBase64, page str
 	if err != nil {
 		return nil, fmt.Errorf("AI 服务请求失败: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, _ := io.ReadAll(resp.Body)
 
