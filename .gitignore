@@ -1,0 +1,14 @@
+# 环境变量（含密钥）
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+/tmp/
