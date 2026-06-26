@@ -66,7 +66,7 @@ func (h *Hub) Run(ctx context.Context) {
 			// 如果同一用户已有旧连接，先关闭旧连接
 			if oldClient, ok := h.clients[client.UserID]; ok {
 				close(oldClient.send)
-				oldClient.conn.Close()
+				_ = oldClient.conn.Close()
 			}
 			h.clients[client.UserID] = client
 			count := len(h.clients)

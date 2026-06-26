@@ -48,13 +48,13 @@ func NewClient(userID int64, hub *Hub, conn *websocket.Conn) *Client {
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
-		c.conn.Close()
+		_ = c.conn.Close()
 	}()
 
-	c.conn.SetReadLimit(maxMessageSize)
-	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	_ = c.conn.SetReadLimit(maxMessageSize)
+	_ = c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		_ = c.conn.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
 
@@ -90,7 +90,7 @@ func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
+		_ = c.conn.Close()
 	}()
 
 	for {
@@ -98,18 +98,18 @@ func (c *Client) writePump() {
 		case message, ok := <-c.send:
 			if !ok {
 				// Hub 关闭了 send channel
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
 				logger.Warnf("WebSocket 写异常 (user_id=%d): %v", c.UserID, err)
 				return
 			}
 
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
