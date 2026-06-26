@@ -8,6 +8,7 @@ import (
 	"chillcat-server/internal/model"
 	"chillcat-server/internal/repository"
 	"chillcat-server/internal/service"
+	"chillcat-server/internal/vision"
 	"chillcat-server/internal/ws"
 	"chillcat-server/pkg/logger"
 	"chillcat-server/pkg/validator"
@@ -79,6 +80,10 @@ func Setup(cfg *config.Config) *gin.Engine {
 	voiceHandler := handler.NewVoiceHandler(db)
 	letterHandler := handler.NewLetterHandler(letterService)
 
+	// Vision (视觉分析 — AI 驱动的 UI 完整度校验)
+	visionService := vision.NewVisionService()
+	visionHandler := vision.NewVisionHandler(visionService)
+
 	// WebSocket Hub（实时推送管理中心）
 	wsHub := ws.NewHub(rdb)
 	go wsHub.Run(context.Background())
@@ -102,6 +107,9 @@ func Setup(cfg *config.Config) *gin.Engine {
 			auth.POST("/refresh", authHandler.RefreshToken)
 			auth.POST("/anonymous", authHandler.AnonymousLogin)
 		}
+
+		// Vision (视觉分析 — 公开接口，用于 CI 自动化测试)
+		v1.POST("/vision/analyze", visionHandler.Analyze)
 
 		authorized := v1.Group("")
 		authorized.Use(middleware.Auth(cfg.JWT.Secret))
