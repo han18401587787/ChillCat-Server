@@ -39,8 +39,8 @@ func main() {
 	now := time.Now()
 	db.Where("user_id = ?", uid).FirstOrCreate(&model.MemberInfo{
 		UserID: uid, MemberType: "yearly", Status: "active",
-		StartDate: timePtr(now.AddDate(0, -1, 0)),
-		EndDate:   timePtr(now.AddDate(0, 11, 0)), AutoRenew: true,
+		StartDate: now.AddDate(0, -1, 0),
+		EndDate:   now.AddDate(0, 11, 0), AutoRenew: true,
 	})
 	logger.Info("✅ 年度会员")
 
@@ -75,20 +75,19 @@ func main() {
 	logger.Info("✅ 树洞帖子: 12条")
 
 	// === 5. 共鸣墙故事 ===
-	stories := []struct{ content, emotion, emotionColor string }{
-		{"三十岁生日一个人过的，给自己买了个小蛋糕。有点孤独，但也挺自由的。", "孤独", "7A9AAA"},
-		{"下周一就答辩了，PPT改了三遍了还是不满意。", "焦虑", "D4C8E8"},
-		{"今天终于鼓起勇气和妈妈说了心里话。说着说着就哭了，但说完轻松了好多好多。", "平静", "A8D9BA"},
-		{"在地铁上看到一个女孩偷偷擦眼泪，想递张纸巾又怕冒犯。希望你现在好一点了。", "委屈", "F5A6BA"},
-		{"拿到了心仪公司的offer！努力没有白费。", "开心", "D4A882"},
-		{"加班到凌晨，回家的路上看到环卫工已经在扫街了。大家都不容易。", "疲惫", "63B5F5"},
+	stories := []struct{ content, emotion string }{
+		{"三十岁生日一个人过的，给自己买了个小蛋糕。有点孤独，但也挺自由的。", "孤独"},
+		{"下周一就答辩了，PPT改了三遍了还是不满意。", "焦虑"},
+		{"今天终于鼓起勇气和妈妈说了心里话。说着说着就哭了，但说完轻松了好多好多。", "平静"},
+		{"在地铁上看到一个女孩偷偷擦眼泪，想递张纸巾又怕冒犯。希望你现在好一点了。", "委屈"},
+		{"拿到了心仪公司的offer！努力没有白费。", "开心"},
+		{"加班到凌晨，回家的路上看到环卫工已经在扫街了。大家都不容易。", "疲惫"},
 	}
 	var storyIDs []int64
 	for _, s := range stories {
 		story := &model.ResonanceStory{
-			UserID: uid, Content: s.content, Emotion: s.emotion,
-			EmotionColor: s.emotionColor, IsAnonymous: true, DisplayName: "匿名用户",
-			ResonanceCount: int64(rand.Intn(3000) + 100),
+			UserID: uid, Content: s.content, EmotionType: s.emotion,
+			IsAnonymous: true, ResonanceCount: int64(rand.Intn(3000) + 100),
 			CreatedAt: now.Add(-time.Duration(rand.Intn(72)) * time.Hour),
 		}
 		db.Where("content = ? AND user_id = ?", s.content, uid).FirstOrCreate(story)
@@ -110,10 +109,11 @@ func main() {
 
 	// === 7. 鼓励链 ===
 	chain := &model.EncourageChain{
-		CreatorID: uid, Status: "active", Category: "daily",
-		ParticipantCount: 5, CreatedAt: now.Add(-24 * time.Hour),
+		InitiatorID: uid, Title: "每日鼓励接力", Description: "每人说一句温暖的话",
+		MaxLength: 10, CurrentLength: 5, Category: "daily", Status: "active",
+		CreatedAt: now.Add(-24 * time.Hour),
 	}
-	db.Where("creator_id = ? AND status = ?", uid, "active").FirstOrCreate(chain)
+	db.Where("initiator_id = ? AND status = ?", uid, "active").FirstOrCreate(chain)
 	for i := 0; i < 5; i++ {
 		db.Where("chain_id = ? AND position = ?", chain.ID, i+1).FirstOrCreate(&model.EncourageLink{
 			ChainID: chain.ID, UserID: uid, Content: randomEncourage(),
@@ -123,30 +123,39 @@ func main() {
 	logger.Info("✅ 鼓励链: 1条 (5个环节)")
 
 	// === 8. 稳情计划 ===
+	today := now.Format("2006-01-02")
+	endDay := now.AddDate(0, 0, 7).Format("2006-01-02")
 	plan := &model.HealingPlan{
-		UserID: uid, Name: "月度稳情计划", Description: "基于你近30天情绪数据生成的个性化计划",
-		CreatedAt: now.AddDate(0, 0, -7),
+		UserID: uid, StartDate: today, EndDate: endDay, Status: "active",
+		CreatedAt: now,
 	}
-	db.Where("user_id = ?", uid).FirstOrCreate(plan)
-	tasks := []struct{ title, desc string; sortOrder int; completed bool }{
-		{"每日冥想10分钟", "4-7-8呼吸法", 1, true},
-		{"写情绪日记", "记录今天最强烈的情绪", 2, true},
-		{"散步30分钟", "在户外感受自然", 3, true},
-		{"给朋友打个电话", "分享一件开心的事", 4, false},
-		{"做一件让自己开心的事", "买杯咖啡、看个电影", 5, false},
-		{"整理房间15分钟", "环境整洁心情也会好", 6, false},
-		{"睡前感恩练习", "写下今天感谢的三件事", 7, false},
+	db.Where("user_id = ? AND status = ?", uid, "active").FirstOrCreate(plan)
+	tasks := []struct {
+		day                   int
+		taskType, title, desc string
+		completed             bool
+	}{
+		{1, "breathing", "4-7-8呼吸法", "跟随引导做5分钟深呼吸", true},
+		{2, "journal", "情绪日记", "写下今天最强烈的情绪和触发原因", true},
+		{3, "meditation", "冥想放松", "闭上眼睛跟随音频放松10分钟", true},
+		{4, "active", "散步30分钟", "去户外感受阳光和自然", false},
+		{5, "music", "听一首喜欢的歌", "选一首让自己心情好的音乐", false},
+		{6, "active", "整理房间", "花15分钟整理一个角落", false},
+		{7, "journal", "感恩练习", "写下今天最想感谢的三件事", false},
 	}
 	for _, t := range tasks {
-		db.Where("plan_id = ? AND title = ?", plan.ID, t.title).FirstOrCreate(&model.HealingPlanTask{
-			PlanID: plan.ID, Title: t.title, Description: t.desc,
-			IsCompleted: t.completed, SortOrder: t.sortOrder,
+		db.Where("plan_id = ? AND day_number = ?", plan.ID, t.day).FirstOrCreate(&model.HealingPlanTask{
+			PlanID: plan.ID, DayNumber: t.day, TaskType: t.taskType,
+			TaskTitle: t.title, TaskDesc: t.desc, IsCompleted: t.completed,
 		})
 	}
-	logger.Info("✅ 稳情计划: 7天任务")
+	logger.Info("✅ 稳情计划: 7天任务 (3完成/4未完成)")
 
 	// === 9. 感谢信 ===
-	letters := []struct{ content, sender, receiver string; public bool }{
+	letters := []struct {
+		content, sender, receiver string
+		public                    bool
+	}{
 		{"谢谢你一直以来的陪伴，每次和你聊天都觉得很温暖。", "匿名用户", "绪安体验官", true},
 		{"你的分享给了我很大的勇气，让我知道自己不是一个人。", "小雅", "绪安体验官", true},
 	}
@@ -162,8 +171,6 @@ func main() {
 	logger.Info("   账号: tester / 123456")
 	logger.Info("   数据: 会员+30天打卡+12帖子+6共鸣+鼓励链+稳情计划+感谢信")
 }
-
-func timePtr(t time.Time) *time.Time { return &t }
 
 func randomMessage() string {
 	msgs := []string{"我也有过这种感觉", "加油！", "你不是一个人", "抱抱你", "一切都会好起来的", "你很勇敢", "谢谢你的分享"}
