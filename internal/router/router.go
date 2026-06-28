@@ -80,6 +80,12 @@ func Setup(cfg *config.Config) *gin.Engine {
 	voiceHandler := handler.NewVoiceHandler(db)
 	letterHandler := handler.NewLetterHandler(letterService)
 
+	// 社区（温暖模板 + 互助小组）
+	communityHandler := handler.NewCommunityHandler()
+
+	// 成长与成就
+	growthHandler := handler.NewGrowthHandler()
+
 	// Vision (视觉分析 — AI 驱动的 UI 完整度校验)
 	visionService := vision.NewVisionService()
 	visionHandler := vision.NewVisionHandler(visionService)
@@ -204,6 +210,20 @@ func Setup(cfg *config.Config) *gin.Engine {
 				letters.GET("/received", letterHandler.Received)
 				letters.GET("/:id", letterHandler.Get)
 			}
+
+			// 社区（温暖模板 + 互助小组）
+			community := authorized.Group("/community")
+			{
+				community.GET("/warm-templates", communityHandler.GetWarmTemplates)
+				community.GET("/mutual-aid-groups", communityHandler.GetMutualAidGroups)
+				community.POST("/mutual-aid-groups/:id/join", communityHandler.JoinMutualAidGroup)
+				community.POST("/mutual-aid-groups/:id/leave", communityHandler.LeaveMutualAidGroup)
+			}
+
+			// 成长与成就
+			authorized.GET("/achievements", growthHandler.GetAchievements)
+			authorized.GET("/milestones", growthHandler.GetMilestones)
+			authorized.GET("/growth/stats", growthHandler.GetGrowthStats)
 		}
 
 		// WebSocket 实时推送（在 upgrade 中自行验证 JWT）
