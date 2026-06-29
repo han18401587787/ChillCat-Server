@@ -206,15 +206,37 @@ func (s *VisionService) analyzeWithRules(imageBase64, page string, expectedEleme
 func getExpectedElements(page string) []string {
 	switch page {
 	case "home":
-		return []string{"首页Tab", "树洞Tab", "工具箱Tab", "会员Tab", "我的Tab", "AI倾听官卡片", "情绪打卡入口"}
+		return []string{"日期文本", "用户头像", "问候语", "4个需求标签(被倾听/被理解/被鼓励/想说说)", "今日心情打卡按钮", "今日暖心卡片", "稳情计划卡片", "情绪探索卡片", "正在发生的温暖列表", "AI倾听官入口"}
 	case "treehole":
-		return []string{"共鸣墙标题", "发布输入框", "帖子列表", "社区准则横幅"}
-	case "toolbox":
-		return []string{"心理工具箱标题", "呼吸训练卡片", "CBT认知重构卡片", "冥想卡片", "感恩日记卡片"}
-	case "vip":
-		return []string{"会员中心标题", "会员权益列表", "订阅按钮"}
+		return []string{"树洞标题", "在线人数指示", "倾诉输入框", "发送倾诉按钮", "快捷模板标签", "倾诉列表卡片"}
+	case "resonance":
+		return []string{"共鸣墙标题", "在线人数", "你并不孤单提示卡片", "共鸣卡片列表", "写下心情浮动按钮", "鼓励链入口"}
+	case "healing":
+		return []string{"治愈空间标题", "冥想练习卡片列表", "治愈音频卡片", "呼吸训练入口", "4-7-8呼吸动画"}
 	case "profile":
-		return []string{"个人中心标题", "头像", "昵称", "成长档案入口", "安全计划入口", "设置入口"}
+		return []string{"我的标题", "用户头像", "昵称/点击登录", "统计概览(打卡/天数/共鸣)", "心光会员大卡片", "功能入口列表(情绪趋势/治愈记录/感谢信/隐私)", "设置入口"}
+	case "login":
+		return []string{"绪安Logo", "标题(你的情绪治愈伙伴)", "手机号输入框(+86)", "验证码输入框", "获取验证码按钮", "登录按钮", "微信/Apple登录方式", "用户协议链接"}
+	case "settings":
+		return []string{"设置标题", "账号与安全分组", "消息通知分组", "隐私设置分组", "外观分组(深色模式)", "关于分组(版本/协议)", "数据管理分组", "注销账号按钮"}
+	case "vip":
+		return []string{"会员中心标题", "会员等级卡片", "权益对比列表", "首月¥9.9信息", "立即开通按钮", "套餐选择"}
+	case "emotion_decoder":
+		return []string{"情绪地图标题", "本月/本周切换器", "五维雷达图", "情绪强度进度条", "AI洞察卡片"}
+	case "emotion_record":
+		return []string{"此刻的感受标题", "6种情绪选择网格", "语音输入按钮", "情绪强度滑块", "继续按钮"}
+	case "checkin_success":
+		return []string{"AI倾听官头像", "今日已打卡提示", "情绪标签", "陪伴天数", "AI回应卡片", "继续聊天/发布共鸣墙/查看情绪解码按钮"}
+	case "stable_plan":
+		return []string{"稳情计划标题", "近7天情绪柱状图", "本周进度条", "7天任务列表", "查看完整计划按钮"}
+	case "rain_sound":
+		return []string{"雨声助眠标题", "关闭按钮", "雨滴动画", "进度条", "播放控制按钮", "定时关闭选项"}
+	case "safety_plan":
+		return []string{"安全计划标题", "预警信号列表", "安抚策略列表", "支持联系人", "专业热线链接", "分享按钮"}
+	case "resonance_detail":
+		return []string{"共鸣详情标题", "原始帖子卡片(全展开)", "回应列表", "底部共鸣/鼓励按钮", "回复输入框"}
+	case "encourage_chain":
+		return []string{"鼓励链标题", "接力可视化", "参与用户列表", "传递善意按钮"}
 	default:
 		return []string{"导航栏", "主内容区", "底部TabBar"}
 	}
@@ -252,8 +274,13 @@ func buildCheckList(checks []string) string {
 
 func buildVisionPrompt(page string, expectedElements []string, checkList string) string {
 	pageNames := map[string]string{
-		"home": "首页", "treehole": "树洞/共鸣墙", "toolbox": "心理工具箱",
-		"vip": "会员中心", "profile": "个人中心",
+		"home": "首页", "treehole": "树洞", "resonance": "共鸣墙",
+		"healing": "治愈空间", "profile": "个人中心", "login": "登录页",
+		"settings": "设置页", "vip": "心光会员中心",
+		"emotion_decoder": "情绪解码", "emotion_record": "情绪记录",
+		"checkin_success": "打卡成功", "stable_plan": "稳情计划",
+		"rain_sound": "雨声助眠", "safety_plan": "安全守护",
+		"resonance_detail": "共鸣详情", "encourage_chain": "鼓励接力",
 	}
 	pageName := pageNames[page]
 	if pageName == "" {
