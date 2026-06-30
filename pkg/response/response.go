@@ -89,9 +89,12 @@ func Success(c *gin.Context, data interface{}) {
 	JSON(c, CodeSuccess, data)
 }
 
+// emptyObj 空 JSON 对象，避免客户端解析 data 字段时因 null 值崩溃
+var emptyObj = struct{}{}
+
 // Error 错误响应
 func Error(c *gin.Context, code int) {
-	JSON(c, code, nil)
+	JSON(c, code, emptyObj)
 }
 
 // ErrorWithMsg 带自定义消息的错误响应
@@ -99,7 +102,7 @@ func ErrorWithMsg(c *gin.Context, code int, msg string) {
 	c.JSON(http.StatusOK, Response{
 		Code:    code,
 		Message: msg,
-		Data:    nil,
+		Data:    emptyObj,
 	})
 }
 

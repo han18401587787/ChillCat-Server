@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -88,6 +89,10 @@ func (s *VisionService) Analyze(ctx context.Context, req AnalyzeRequest) (*Analy
 
 // analyzeWithAI 调用通义千问多模态模型进行视觉分析
 func (s *VisionService) analyzeWithAI(ctx context.Context, imageBase64, page string, expectedElements []string, checkList string) (*AnalyzeResult, error) {
+	startTime := time.Now()
+	imageSizeKB := len(imageBase64) / 1024
+	log.Printf("[Vision] 开始 AI 分析 | page=%s image=%dKB", page, imageSizeKB)
+
 	prompt := buildVisionPrompt(page, expectedElements, checkList)
 
 	body := map[string]interface{}{
@@ -157,6 +162,10 @@ func (s *VisionService) analyzeWithAI(ctx context.Context, imageBase64, page str
 	if err != nil {
 		return nil, fmt.Errorf("解析 AI 分析结果失败: %w", err)
 	}
+
+	elapsed := time.Since(startTime)
+	log.Printf("[Vision] AI 分析完成 | page=%s score=%.0f passed=%v elapsed=%v",
+		page, result.Score, result.Passed, elapsed.Round(time.Millisecond))
 
 	return result, nil
 }
