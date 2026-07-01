@@ -39,8 +39,8 @@ func main() {
 	now := time.Now()
 	db.Where("user_id = ?", uid).FirstOrCreate(&model.MemberInfo{
 		UserID: uid, MemberType: "yearly", Status: "active",
-		StartDate: now.AddDate(0, -1, 0),
-		EndDate:   now.AddDate(0, 11, 0), AutoRenew: true,
+		StartDate: timePtr(now.AddDate(0, -1, 0)),
+		EndDate:   timePtr(now.AddDate(0, 11, 0)), AutoRenew: true,
 	})
 	logger.Info("✅ 年度会员")
 
@@ -161,7 +161,7 @@ func main() {
 	}
 	for _, l := range letters {
 		db.Create(&model.ThankYouLetter{
-			SenderID: uid, SenderName: l.sender, ReceiverName: l.receiver,
+			SenderID: uid, ReceiverID: uid,
 			Content: l.content, IsPublic: l.public, CreatedAt: now.Add(-time.Duration(rand.Intn(48)) * time.Hour),
 		})
 	}
@@ -181,3 +181,5 @@ func randomEncourage() string {
 	words := []string{"今天也要加油💪", "你是最棒的✨", "一切都会好的🌈", "给自己一个拥抱🫂", "你值得被温柔对待🌸"}
 	return words[rand.Intn(len(words))]
 }
+
+func timePtr(t time.Time) *time.Time { return &t }
