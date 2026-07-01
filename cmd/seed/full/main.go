@@ -18,7 +18,7 @@ func main() {
 	logger.Info("🌱 绪安全类型测试账号填充...")
 
 	db, _ := gorm.Open(postgres.Open(cfg.Database.DSN()), &gorm.Config{})
-	db.AutoMigrate(
+	_ = db.AutoMigrate(
 		&model.User{}, &model.MemberInfo{}, &model.MemberOrder{},
 		&model.EmotionCheckin{}, &model.TreeHolePost{},
 		&model.Course{}, &model.UserCourseProgress{}, &model.CourseComment{},
