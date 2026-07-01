@@ -330,7 +330,8 @@ func buildVisionPrompt(page string, expectedElements []string, checkList string)
 - elements_found 列出你实际看到的元素
 - elements_missing 列出期望但未看到的元素
 - issues 中 severity 为 high/medium/low
-- 如果截图是空白或无法识别，score 设为 0`, pageName, elementsStr, checkList)
+- 如果截图是空白或无法识别，score 设为 0
+- 重要：元素匹配基于语义而非精确文字。例如「树洞标题」可以匹配页面顶部的大号"树洞"文字，不要求完全相同的措辞。`, pageName, elementsStr, checkList)
 }
 
 func parseAIResult(content string) (*AnalyzeResult, error) {
