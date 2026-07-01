@@ -9,7 +9,7 @@ services:
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=chillcat
-      - DB_PASSWORD=chillcat_pass
+      - DB_PASSWORD=chillcat_prod_2026
       - DB_NAME=chillcat
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -31,7 +31,7 @@ services:
       - pgdata:/var/lib/postgresql/data
     environment:
       - POSTGRES_USER=chillcat
-      - POSTGRES_PASSWORD=chillcat_pass
+      - POSTGRES_PASSWORD=chillcat_prod_2026
       - POSTGRES_DB=chillcat
     ports:
       - "5432:5432"
