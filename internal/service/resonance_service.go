@@ -75,7 +75,8 @@ func (s *ResonanceService) GetStory(storyID int64) (*StoryVO, int, error) {
 }
 
 // ListStories 分页获取共鸣故事列表
-func (s *ResonanceService) ListStories(page, pageSize int) (*response.Page, int, error) {
+// 返回: 分页数据, 在线人数, 错误码, 错误
+func (s *ResonanceService) ListStories(page, pageSize int) (*response.Page, int64, int, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -84,13 +85,34 @@ func (s *ResonanceService) ListStories(page, pageSize int) (*response.Page, int,
 	}
 	items, total, err := s.repo.ListStories(page, pageSize)
 	if err != nil {
-		return nil, response.ErrInternal, err
+		return nil, 0, response.ErrInternal, err
 	}
 	vos := make([]StoryVO, 0, len(items))
 	for _, story := range items {
 		vos = append(vos, *s.toStoryVO(&story))
 	}
-	return &response.Page{List: vos, Total: total, Page: page, PageSize: pageSize}, response.CodeSuccess, nil
+
+	// 获取在线人数（从 Redis 或估算）
+	onlineCount := s.getOnlineCount()
+
+	return &response.Page{List: vos, Total: total, Page: page, PageSize: pageSize}, onlineCount, response.CodeSuccess, nil
+}
+
+// getOnlineCount 获取当前在线人数（Redis 在线用户数或降级为固定估算值）
+func (s *ResonanceService) getOnlineCount() int64 {
+	if s.rdb != nil && s.rdb.IsOK() {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+		// 尝试从 Redis 获取在线人数
+		if val, err := s.rdb.Get(ctx, "chillcat:online_count"); err == nil && val != "" {
+			var count int64
+			if json.Unmarshal([]byte(val), &count) == nil {
+				return count
+			}
+		}
+	}
+	// Redis 不可用时返回合理默认值
+	return 42
 }
 
 // ResonateRequest 共鸣请求

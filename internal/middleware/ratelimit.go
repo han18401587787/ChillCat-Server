@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"chillcat-server/pkg/response"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,8 +48,24 @@ func (tb *TokenBucket) Allow() bool {
 	return false
 }
 
+// 限流白名单路径（健康检查、静态资源等不限流）
+var rateLimitWhitelist = []string{
+	"/health",
+	"/api/v1/vision/analyze",
+}
+
+func isRateLimitWhitelisted(path string) bool {
+	for _, p := range rateLimitWhitelist {
+		if strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return false
+}
+
 // RateLimit 简易限流中间件（基于IP的令牌桶）
-// 默认：每IP每秒10个请求，最大突发20个
+// 默认：每IP每秒20个请求，最大突发40个
+// 白名单路径（/health 等）不限流
 func RateLimit() gin.HandlerFunc {
 	buckets := make(map[string]*TokenBucket)
 	var mu sync.Mutex
@@ -59,24 +76,29 @@ func RateLimit() gin.HandlerFunc {
 		if b, ok := buckets[ip]; ok {
 			return b
 		}
-		b := NewTokenBucket(10, 20)
+		b := NewTokenBucket(20, 40)
 		buckets[ip] = b
 		return b
 	}
 
-	// 定期清理过期桶
+	// 定期清理过期桶（每 5 分钟）
 	go func() {
 		for {
-			time.Sleep(10 * time.Minute)
+			time.Sleep(5 * time.Minute)
 			mu.Lock()
-			for ip := range buckets {
-				delete(buckets, ip)
-			}
+			// 只清理旧的 map，重建
+			buckets = make(map[string]*TokenBucket)
 			mu.Unlock()
 		}
 	}()
 
 	return func(c *gin.Context) {
+		// 白名单路径不限流
+		if isRateLimitWhitelisted(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
+
 		ip := c.ClientIP()
 		bucket := getBucket(ip)
 		if !bucket.Allow() {

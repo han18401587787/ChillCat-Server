@@ -39,12 +39,19 @@ func (h *ResonanceHandler) CreateStory(c *gin.Context) {
 func (h *ResonanceHandler) ListStories(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-	result, code, err := h.svc.ListStories(page, pageSize)
+	result, onlineCount, code, err := h.svc.ListStories(page, pageSize)
 	if err != nil {
 		response.Error(c, code)
 		return
 	}
-	response.Success(c, result)
+	// 返回带 online_count 的扩展响应
+	response.Success(c, gin.H{
+		"list":         result.List,
+		"total":        result.Total,
+		"page":         result.Page,
+		"page_size":    result.PageSize,
+		"online_count": onlineCount,
+	})
 }
 
 // GetStory 获取单条共鸣故事详情

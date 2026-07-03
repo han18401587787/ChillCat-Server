@@ -42,9 +42,11 @@ type RegisterRequest struct {
 
 // RegisterResponse 注册响应
 type RegisterResponse struct {
-	UserID   int64  `json:"user_id"`
-	Username string `json:"username"`
-	Token    string `json:"token"`
+	UserID       int64  `json:"user_id"`
+	Username     string `json:"username"`
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	ExpiresIn    int    `json:"expires_in,omitempty"`
 }
 
 // Register 用户注册
@@ -86,11 +88,14 @@ func (s *UserService) Register(req *RegisterRequest) (*RegisterResponse, int, er
 		logger.Errorf("生成 Token 失败: %v", err)
 		return nil, response.ErrInternal, err
 	}
+	refreshToken, _ := jwt.GenerateRefreshToken(user.ID, user.Username, s.jwtSecret, s.jwtExpire*3)
 
 	return &RegisterResponse{
-		UserID:   user.ID,
-		Username: user.Username,
-		Token:    token,
+		UserID:       user.ID,
+		Username:     user.Username,
+		Token:        token,
+		RefreshToken: refreshToken,
+		ExpiresIn:    s.jwtExpire * 3600,
 	}, response.CodeSuccess, nil
 }
 
@@ -102,11 +107,13 @@ type LoginRequest struct {
 
 // LoginResponse 登录响应
 type LoginResponse struct {
-	UserID   int64  `json:"user_id"`
-	Username string `json:"username"`
-	Nickname string `json:"nickname"`
-	Avatar   string `json:"avatar"`
-	Token    string `json:"token"`
+	UserID       int64  `json:"user_id"`
+	Username     string `json:"username"`
+	Nickname     string `json:"nickname"`
+	Avatar       string `json:"avatar"`
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	ExpiresIn    int    `json:"expires_in,omitempty"`
 }
 
 // Login 用户登录
@@ -134,12 +141,17 @@ func (s *UserService) Login(req *LoginRequest) (*LoginResponse, int, error) {
 		return nil, response.ErrInternal, err
 	}
 
+	// 同时生成 refresh token
+	refreshToken, _ := jwt.GenerateRefreshToken(user.ID, user.Username, s.jwtSecret, s.jwtExpire*3)
+
 	return &LoginResponse{
-		UserID:   user.ID,
-		Username: user.Username,
-		Nickname: user.Nickname,
-		Avatar:   user.Avatar,
-		Token:    token,
+		UserID:       user.ID,
+		Username:     user.Username,
+		Nickname:     user.Nickname,
+		Avatar:       user.Avatar,
+		Token:        token,
+		RefreshToken: refreshToken,
+		ExpiresIn:    s.jwtExpire * 3600,
 	}, response.CodeSuccess, nil
 }
 
@@ -168,5 +180,6 @@ func (s *UserService) AnonymousRegister() (*LoginResponse, int, error) {
 	}
 	token, err := jwt.GenerateToken(user.ID, user.Username, s.jwtSecret, s.jwtExpire)
 	if err != nil { return nil, response.ErrInternal, err }
-	return &LoginResponse{UserID: user.ID, Username: user.Username, Nickname: user.Nickname, Token: token}, response.CodeSuccess, nil
+	refreshToken, _ := jwt.GenerateRefreshToken(user.ID, user.Username, s.jwtSecret, s.jwtExpire*3)
+	return &LoginResponse{UserID: user.ID, Username: user.Username, Nickname: user.Nickname, Token: token, RefreshToken: refreshToken, ExpiresIn: s.jwtExpire * 3600}, response.CodeSuccess, nil
 }

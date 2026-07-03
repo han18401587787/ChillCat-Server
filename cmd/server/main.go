@@ -27,13 +27,17 @@ func main() {
 	r := router.Setup(cfg)
 
 	// 启动 HTTP 服务
-	// WriteTimeout 设为 60s 以容纳 Vision API 的 AI 模型推理耗时（qwen-vl-max 4~20s）
+	// ReadTimeout: 请求体读取超时（防止慢客户端占用连接）
+	// WriteTimeout: 响应写入超时（Vision API 最长 20s，给 60s 余量）
+	// IdleTimeout: 空闲连接保持时间
 	srv := &http.Server{
-		Addr:         ":" + cfg.Server.Port,
-		Handler:      r,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 60 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              ":" + cfg.Server.Port,
+		Handler:           r,
+		ReadTimeout:       30 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1MB
 	}
 
 	// 优雅关停

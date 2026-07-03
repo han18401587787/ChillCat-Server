@@ -73,7 +73,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 	courseHandler := handler.NewCourseHandler(courseService, commentRepo)
 	resonanceHandler := handler.NewResonanceHandler(resonanceService)
 	encourageHandler := handler.NewEncourageHandler(encourageService)
-	healthHandler := handler.NewHealthHandler()
+	healthHandler := handler.NewHealthHandler(db)
 	aiHandler := handler.NewAIHandler(aiService)
 	emotionDecodeHandler := handler.NewEmotionDecodeHandler(emotionDecodeService)
 	healingHandler := handler.NewHealingHandler(healingService)
@@ -100,7 +100,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 	r.Use(middleware.CORS())
 	r.Use(middleware.RateLimit())
 	r.Use(middleware.SlowRequestLog(500 * time.Millisecond))
-	r.Use(gin.Recovery())
+	r.Use(middleware.Recovery())
 
 	r.GET("/health", healthHandler.Check)
 
