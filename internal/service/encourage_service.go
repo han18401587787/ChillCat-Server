@@ -23,7 +23,7 @@ func NewEncourageService(repo *repository.EncourageRepo, rdb *cache.RedisClient)
 	return &EncourageService{repo: repo, rdb: rdb}
 }
 
-// ---------- 请求 / 展示结构 ----------
+// ---------- 请求结构 ----------
 
 // CreateChainRequest 发起鼓励链请求
 type CreateChainRequest struct {
@@ -33,34 +33,28 @@ type CreateChainRequest struct {
 	Category    string `json:"category" binding:"required"`
 }
 
-// ChainVO 鼓励链展示对象
-type ChainVO struct {
-	ID            int64  `json:"id"`
-	InitiatorID   int64  `json:"initiator_id"`
-	Title         string `json:"title"`
-	Description   string `json:"description"`
-	MaxLength     int    `json:"max_length"`
-	CurrentLength int    `json:"current_length"`
-	Category      string `json:"category"`
-	Status        string `json:"status"`
-	CreatedAt     string `json:"created_at"`
-	CompletedAt   string `json:"completed_at,omitempty"`
+// ChainResponseVO 鼓励链展示对象（与 iOS 客户端 ChainResponse 对齐）
+// 客户端解码为 [ChainResponse]，字段：chain_id / links / participant_count。
+// 返回数组而非分页对象，避免客户端解码 "Expected to decode Array<Any> but found a dictionary"。
+type ChainResponseVO struct {
+	ChainID          int64        `json:"chain_id"`
+	ParticipantCount int64        `json:"participant_count"`
+	Title            string       `json:"title"`
+	Description      string       `json:"description"`
+	Category         string       `json:"category"`
+	Status           string       `json:"status"`
+	CreatedAt        string       `json:"created_at"`
+	Links            []LinkItemVO `json:"links"`
 }
 
-// ChainDetailVO 鼓励链详情（含接力链）
-type ChainDetailVO struct {
-	Chain ChainVO  `json:"chain"`
-	Links []LinkVO `json:"links"`
-}
-
-// LinkVO 接力展示对象
-type LinkVO struct {
-	ID          int64  `json:"id"`
-	UserID      int64  `json:"user_id"`
-	Content     string `json:"content"`
-	Position    int    `json:"position"`
-	IsAnonymous bool   `json:"is_anonymous"`
-	CreatedAt   string `json:"created_at"`
+// LinkItemVO 接力展示对象（与 iOS 客户端 ChainLink 对齐）
+// 客户端解码为 ChainLink，必需字段为 id，其余可选。
+type LinkItemVO struct {
+	ID        int64  `json:"id"`
+	ChainID   int64  `json:"chain_id"`
+	Content   string `json:"content"`
+	Position  int    `json:"position"`
+	CreatedAt string `json:"created_at"`
 }
 
 // JoinChainRequest 接力请求
@@ -72,7 +66,7 @@ type JoinChainRequest struct {
 // ---------- 业务方法 ----------
 
 // CreateChain 发起一条鼓励链
-func (s *EncourageService) CreateChain(userID int64, req *CreateChainRequest) (*ChainVO, int, error) {
+func (s *EncourageService) CreateChain(userID int64, req *CreateChainRequest) (*ChainResponseVO, int, error) {
 	// 分类校验
 	if !isValidCategory(req.Category) {
 		return nil, response.ErrBadRequest, errors.New("无效的分类")
@@ -95,11 +89,11 @@ func (s *EncourageService) CreateChain(userID int64, req *CreateChainRequest) (*
 	if err := s.repo.CreateChain(chain); err != nil {
 		return nil, response.ErrInternal, err
 	}
-	return s.toChainVO(chain), response.CodeSuccess, nil
+	return s.toChainResponseVO(chain, nil), response.CodeSuccess, nil
 }
 
 // GetChain 获取单条鼓励链详情（含接力链）
-func (s *EncourageService) GetChain(chainID int64) (*ChainDetailVO, int, error) {
+func (s *EncourageService) GetChain(chainID int64) (*ChainResponseVO, int, error) {
 	chain, err := s.repo.GetChainByID(chainID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -113,19 +107,11 @@ func (s *EncourageService) GetChain(chainID int64) (*ChainDetailVO, int, error) 
 		return nil, response.ErrInternal, err
 	}
 
-	linkVOs := make([]LinkVO, 0, len(links))
-	for _, l := range links {
-		linkVOs = append(linkVOs, *s.toLinkVO(&l))
-	}
-
-	return &ChainDetailVO{
-		Chain: *s.toChainVO(chain),
-		Links: linkVOs,
-	}, response.CodeSuccess, nil
+	return s.toChainResponseVO(chain, links), response.CodeSuccess, nil
 }
 
-// ListChains 分页获取鼓励链列表
-func (s *EncourageService) ListChains(status, category string, page, pageSize int) (*response.Page, int, error) {
+// ListChains 获取鼓励链列表（返回数组，与 iOS 客户端 [ChainResponse] 对齐）
+func (s *EncourageService) ListChains(status, category string, page, pageSize int) ([]ChainResponseVO, int, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -133,21 +119,16 @@ func (s *EncourageService) ListChains(status, category string, page, pageSize in
 		pageSize = 10
 	}
 
-	items, total, err := s.repo.ListChains(status, category, page, pageSize)
+	items, _, err := s.repo.ListChains(status, category, page, pageSize)
 	if err != nil {
 		return nil, response.ErrInternal, err
 	}
 
-	vos := make([]ChainVO, 0, len(items))
-	for _, c := range items {
-		vos = append(vos, *s.toChainVO(&c))
-	}
-
-	return &response.Page{List: vos, Total: total, Page: page, PageSize: pageSize}, response.CodeSuccess, nil
+	return s.buildChainResponses(items), response.CodeSuccess, nil
 }
 
 // JoinChain 加入鼓励链接力
-func (s *EncourageService) JoinChain(chainID, userID int64, req *JoinChainRequest) (*LinkVO, int, error) {
+func (s *EncourageService) JoinChain(chainID, userID int64, req *JoinChainRequest) (*LinkItemVO, int, error) {
 	chain, err := s.repo.GetChainByID(chainID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -196,21 +177,31 @@ func (s *EncourageService) JoinChain(chainID, userID int64, req *JoinChainReques
 	// 发布鼓励接力事件到 Redis（用于 WebSocket 实时推送）
 	s.publishJoinEvent(chainID, userID, content)
 
-	return s.toLinkVO(link), response.CodeSuccess, nil
+	return s.toLinkItemVO(link), response.CodeSuccess, nil
 }
 
-// ListMyChains 获取我参与/发起的鼓励链
-func (s *EncourageService) ListMyChains(userID int64) ([]ChainVO, int, error) {
+// ListMyChains 获取我参与/发起的鼓励链（返回数组，与 iOS 客户端 [ChainResponse] 对齐）
+func (s *EncourageService) ListMyChains(userID int64) ([]ChainResponseVO, int, error) {
 	chains, err := s.repo.ListUserChains(userID)
 	if err != nil {
 		return nil, response.ErrInternal, err
 	}
 
-	vos := make([]ChainVO, 0, len(chains))
-	for _, c := range chains {
-		vos = append(vos, *s.toChainVO(&c))
+	return s.buildChainResponses(chains), response.CodeSuccess, nil
+}
+
+// buildChainResponses 批量构建 ChainResponseVO，并为每条链加载接力列表。
+// 始终返回非 nil 切片，保证客户端解码为数组（空数组而非 null）。
+func (s *EncourageService) buildChainResponses(chains []model.EncourageChain) []ChainResponseVO {
+	vos := make([]ChainResponseVO, 0, len(chains))
+	for i := range chains {
+		var links []model.EncourageLink
+		if ls, e := s.repo.GetLinksByChainID(chains[i].ID); e == nil {
+			links = ls
+		}
+		vos = append(vos, *s.toChainResponseVO(&chains[i], links))
 	}
-	return vos, response.CodeSuccess, nil
+	return vos
 }
 
 // ---------- 内部辅助 ----------
@@ -225,34 +216,32 @@ func isValidCategory(cat string) bool {
 	}
 }
 
-// toChainVO 将 model 转为 ChainVO
-func (s *EncourageService) toChainVO(c *model.EncourageChain) *ChainVO {
-	vo := &ChainVO{
-		ID:            c.ID,
-		InitiatorID:   c.InitiatorID,
-		Title:         c.Title,
-		Description:   c.Description,
-		MaxLength:     c.MaxLength,
-		CurrentLength: c.CurrentLength,
-		Category:      c.Category,
-		Status:        c.Status,
-		CreatedAt:     c.CreatedAt.Format(time.RFC3339),
+// toChainResponseVO 将 model + 接力列表转为客户端契约结构
+func (s *EncourageService) toChainResponseVO(c *model.EncourageChain, links []model.EncourageLink) *ChainResponseVO {
+	linkVOs := make([]LinkItemVO, 0, len(links))
+	for i := range links {
+		linkVOs = append(linkVOs, *s.toLinkItemVO(&links[i]))
 	}
-	if c.CompletedAt != nil {
-		vo.CompletedAt = c.CompletedAt.Format(time.RFC3339)
+	return &ChainResponseVO{
+		ChainID:          c.ID,
+		ParticipantCount: int64(c.CurrentLength),
+		Title:            c.Title,
+		Description:      c.Description,
+		Category:         c.Category,
+		Status:           c.Status,
+		CreatedAt:        c.CreatedAt.Format(time.RFC3339),
+		Links:            linkVOs,
 	}
-	return vo
 }
 
-// toLinkVO 将 model 转为 LinkVO
-func (s *EncourageService) toLinkVO(l *model.EncourageLink) *LinkVO {
-	return &LinkVO{
-		ID:          l.ID,
-		UserID:      l.UserID,
-		Content:     l.Content,
-		Position:    l.Position,
-		IsAnonymous: l.IsAnonymous,
-		CreatedAt:   l.CreatedAt.Format(time.RFC3339),
+// toLinkItemVO 将 model 转为客户端契约的接力结构
+func (s *EncourageService) toLinkItemVO(l *model.EncourageLink) *LinkItemVO {
+	return &LinkItemVO{
+		ID:        l.ID,
+		ChainID:   l.ChainID,
+		Content:   l.Content,
+		Position:  l.Position,
+		CreatedAt: l.CreatedAt.Format(time.RFC3339),
 	}
 }
 

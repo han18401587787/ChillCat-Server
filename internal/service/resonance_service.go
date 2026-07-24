@@ -137,7 +137,8 @@ func (s *ResonanceService) Resonate(storyID, userID int64, req *ResonateRequest)
 		return response.ErrInternal, err
 	}
 	if resonated {
-		return response.ErrUserExists, errors.New("你已经表达过共鸣了")
+		// 幂等处理：用户已表达过共鸣时直接返回成功，避免重复上报错误码
+		return response.CodeSuccess, nil
 	}
 
 	// 创建共鸣记录
